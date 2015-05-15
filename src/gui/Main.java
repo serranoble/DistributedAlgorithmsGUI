@@ -1,6 +1,7 @@
 package gui;
 
 import java.awt.Dimension;
+import java.awt.List;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.io.BufferedReader;
@@ -11,6 +12,7 @@ import java.io.PrintWriter;
 import java.net.InetAddress;
 import java.net.Socket;
 import java.net.URL;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -100,13 +102,36 @@ public class Main {
 			// clone it to keep a local copy
 			localBag = (JSONArray) bag.clone();
 			// parse it to create the list on screen
-			items = new String[bag.size()];
-			int i = 0;
+			ArrayList<String> temp = new ArrayList<String>();
 			for (Object obj : bag) {
 				Item item = new Item((JSONObject) obj);
-				items[i] = item.getItem().getName();
-				i++;
+				if (item.getAmount() > 0) {
+					temp.add(item.getItem().getName());
+				}
 			}
+			items = new String[temp.size()];
+			temp.toArray(items);
+			imageMap = createImageMap(items);
+		}
+	}
+	
+	private void updateBagList(JSONArray bag, int removed) {
+		if (bag != null) {
+			// clone it to keep a local copy
+			localBag = (JSONArray) bag.clone();
+			// parse it to create the list on screen
+			ArrayList<String> temp = new ArrayList<String>();
+			int i = 0;
+			for (Object obj : bag) {
+				if (i++ == removed)
+					continue;
+				Item item = new Item((JSONObject) obj);
+				if (item.getAmount() > 0) {
+					temp.add(item.getItem().getName());
+				}
+			}
+//			items = new String[temp.size()];
+			items = temp.toArray(items);
 			imageMap = createImageMap(items);
 		}
 	}
@@ -174,7 +199,7 @@ public class Main {
 //		socket.close();
 	}
 	
-	private void getBag() throws Exception {
+	private void getUpdatedBag(int removed) throws Exception {
 		if (token.equals(""))
 			throw new TokenException();
 		
@@ -192,7 +217,7 @@ public class Main {
 		printDebugLines(msg);
 		BagResponse response = new BagResponse();
 		response.FromJSON(msg);
-		updateBagList(response.getBag());
+		updateBagList(response.getBag(), removed);
 		
 //		out.close();
 //		in.close();
@@ -226,14 +251,14 @@ public class Main {
 							.getSelectedIndex()));
 					// send selection to server
 					sendItemPicked(picked);
-					// update bag
-					getBag();
+					// update local bag
+					getUpdatedBag(list.getSelectedIndex());
 					// update screen
 					frame.repaint();
 					// token is cleaned
 					token = "";
 					// button is lock to avoid picking
-					// button.setEnabled(false);
+					button.setEnabled(false);
 				} catch (Exception ex) {
 					ex.printStackTrace();
 				}
@@ -247,7 +272,7 @@ public class Main {
 		gui.add(button);
 
 		// Final frame with all the containers
-		frame = new JFrame("Zombies Demo");
+		frame = new JFrame("Zombies from The Andes (Demo)");
 		frame.setContentPane(gui);
 		frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 		frame.pack();
@@ -258,12 +283,23 @@ public class Main {
 	private Map<String, ImageIcon> createImageMap(String[] list) {
 		Map<String, ImageIcon> map = new HashMap<>();
 		try {
-			map.put(ItemType.Knife.name().toLowerCase(), new ImageIcon(new URL(
-					"http://i.stack.imgur.com/NCsHu.png")));
-			map.put(ItemType.Gun.name().toLowerCase(), new ImageIcon(new URL(
-					"http://i.stack.imgur.com/UvHN4.png")));
-			map.put(ItemType.AidBox.name().toLowerCase(), new ImageIcon(
-					new URL("http://i.stack.imgur.com/s89ON.png")));
+			for (String name : list) {
+				if (name == null)
+					continue;
+				if (name.equalsIgnoreCase(ItemType.Knife.name())) {
+					map.put(ItemType.Knife.name().toLowerCase(), new ImageIcon(
+							Main.class.getResource("img/knife.jpg")));
+				}
+				if (name.equalsIgnoreCase(ItemType.Gun.name())) {
+					map.put(ItemType.Gun.name().toLowerCase(), new ImageIcon(
+							Main.class.getResource("img/gun.png")));
+				}
+				if (name.equalsIgnoreCase(ItemType.AidBox.name())) {
+					map.put(ItemType.AidBox.name().toLowerCase(), new ImageIcon(
+							Main.class.getResource("img/aidbox.gif")));
+				}
+			}
+			
 		} catch (Exception ex) {
 			ex.printStackTrace();
 		}
