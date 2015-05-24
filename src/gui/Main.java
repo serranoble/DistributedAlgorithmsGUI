@@ -20,6 +20,7 @@ import javax.swing.ImageIcon;
 import javax.swing.JButton;
 import javax.swing.JFrame;
 import javax.swing.JList;
+import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.SwingUtilities;
@@ -66,6 +67,12 @@ public class Main {
 	private String token;
 	private String[] items;
 	private JSONArray localBag;
+	
+	// Token Ring parameters
+	private TokenClient client;
+	private String tHost = "localhost";
+	private int tPort = 2250;
+	private boolean hasToken = false;
 	
 	private void printDebugLines(String message){
 		if (this.debug){
@@ -223,11 +230,59 @@ public class Main {
 //		in.close();
 //		socket.close();
 	}
+	
+	private void showMessage(String message) {
+		JOptionPane.showMessageDialog(frame, message);
+	}
+	
+	// The thread will be blocked until some message will be received
+	private boolean initTokenRing() throws Exception {
+		client = new TokenClient(tHost, tPort);
+		// by default, all the guis start requesting the token
+		client.sendRequestCS();
+		// start communication thread
+		Thread tTokenRing = new Thread(client);
+		tTokenRing.start();
+		
+		// main thread will be locked...
+		while((hasToken = client.getHasToken()) != true) {
+			Thread.sleep(1000);
+		}
+		
+		return hasToken;
+	}
+	
+	// The thread will be blocked again until the token will be granted
+	private boolean requestToken() throws Exception {
+		client.sendRequestCS();
+		
+		// main thread will be locked...
+		while((hasToken = client.getHasToken()) != true) {
+			Thread.sleep(1000);
+		}
+		
+		return hasToken;
+	}
+		
+	// The thread will be blocked again until the token will be released
+	private boolean releaseToken() throws Exception {
+		client.sendReleaseCS();
+		
+		// main thread will be locked...
+		while((hasToken = client.getHasToken()) != false) {
+			Thread.sleep(1000);
+		}
+		
+		return hasToken;
+	}
 
 	public Main() {
 		try {
-			initNetworking();
-			checkGameStatus();
+			// locking instructions!
+			if (initTokenRing()) {
+				initNetworking();
+				checkGameStatus();
+			}
 		} catch (Exception ex) {
 			ex.printStackTrace();
 			System.exit(-1);
@@ -245,22 +300,40 @@ public class Main {
 
 			@Override
 			public void actionPerformed(ActionEvent e) {
-				try {
-					// read the picked item
-					Item picked = new Item((JSONObject) localBag.get(list
-							.getSelectedIndex()));
-					// send selection to server
-					sendItemPicked(picked);
-					// update local bag
-					getUpdatedBag(list.getSelectedIndex());
-					// update screen
-					frame.repaint();
-					// token is cleaned
-					token = "";
-					// button is lock to avoid picking
-					button.setEnabled(false);
-				} catch (Exception ex) {
-					ex.printStackTrace();
+				if (list.getSelectedIndex() > 0) {
+					try {
+						// read the picked item
+						Item picked = new Item((JSONObject) localBag.get(list
+								.getSelectedIndex()));
+						// send selection to server
+						sendItemPicked(picked);
+						// update local bag
+						getUpdatedBag(list.getSelectedIndex());
+						// update screen
+						frame.repaint();
+						// token is cleaned
+						token = "";
+						// checking game state according to bag size...
+						if (localBag.size() > 1) {
+							// resolve token ring requests
+							if (releaseToken()) {
+								// button is lock to avoid picking
+								button.setEnabled(false);
+							}
+							//TODO: do this better!
+							if (requestToken()) {
+								// refresh bag...
+								button.setEnabled(true);
+							}
+						} else {
+							//TODO: implement something to show the results
+							showMessage("Game Over!");
+						}
+					} catch (Exception ex) {
+						ex.printStackTrace();
+					}
+				} else {
+					showMessage("Pick an item first!");
 				}
 			}
 		});
