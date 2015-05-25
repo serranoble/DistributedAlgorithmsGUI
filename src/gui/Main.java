@@ -1,7 +1,6 @@
 package gui;
 
 import java.awt.Dimension;
-import java.awt.List;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.io.BufferedReader;
@@ -11,7 +10,6 @@ import java.io.OutputStream;
 import java.io.PrintWriter;
 import java.net.InetAddress;
 import java.net.Socket;
-import java.net.URL;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
@@ -19,6 +17,7 @@ import java.util.Map;
 import javax.swing.ImageIcon;
 import javax.swing.JButton;
 import javax.swing.JFrame;
+import javax.swing.JLabel;
 import javax.swing.JList;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
@@ -47,6 +46,8 @@ public class Main {
 	private JButton button;
 	private JPanel gui;
 	private JFrame frame;
+	private JLabel label;
+	private ImageIcon image;
 	private boolean debug = true;
 
 	// Functionality
@@ -60,26 +61,26 @@ public class Main {
 	// Networking parameters
 	private final String host = "localhost";
 	private final int port = 6262;
-	
+
 	// Game variables
 	private int numPlayers = 1;
 	private/* final */Map<String, ImageIcon> imageMap;
 	private String token;
 	private String[] items;
 	private JSONArray localBag;
-	
+
 	// Token Ring parameters
 	private TokenClient client;
 	private String tHost = "localhost";
 	private int tPort = 2250;
 	private boolean hasToken = false;
-	
-	private void printDebugLines(String message){
-		if (this.debug){
+
+	private void printDebugLines(String message) {
+		if (this.debug) {
 			System.out.println(message);
-		}		
+		}
 	}
-	
+
 	private void initNetworking() throws Exception {
 		socket = new Socket(host, port);
 		inStream = socket.getInputStream();
@@ -103,7 +104,7 @@ public class Main {
 
 		return result.getBusy();
 	}
-	
+
 	private void updateBagList(JSONArray bag) {
 		if (bag != null) {
 			// clone it to keep a local copy
@@ -121,7 +122,7 @@ public class Main {
 			imageMap = createImageMap(items);
 		}
 	}
-	
+
 	private void updateBagList(JSONArray bag, int removed) {
 		if (bag != null) {
 			// clone it to keep a local copy
@@ -137,19 +138,12 @@ public class Main {
 					temp.add(item.getItem().getName());
 				}
 			}
-//			items = new String[temp.size()];
 			items = temp.toArray(items);
 			imageMap = createImageMap(items);
 		}
 	}
 
 	private void checkGameStatus() throws Exception {
-//		socket = new Socket(host, port);
-//		inStream = socket.getInputStream();
-//		outStream = socket.getOutputStream();
-//		out = new PrintWriter(outStream, true);
-//		in = new BufferedReader(new InputStreamReader(inStream));
-
 		// Check if there is any game running
 		if (!isAvailable(out, in)) {
 			// Create a new game
@@ -165,21 +159,11 @@ public class Main {
 			token = response.getToken();
 			updateBagList(response.getBag());
 		}
-
-//		out.close();
-//		in.close();
-//		socket.close();
 	}
 
 	private void sendItemPicked(Item item) throws Exception {
 		if (token.equals(""))
 			throw new TokenException();
-
-//		socket = new Socket(host, port);
-//		inStream = socket.getInputStream();
-//		outStream = socket.getOutputStream();
-//		out = new PrintWriter(outStream, true);
-//		in = new BufferedReader(new InputStreamReader(inStream));
 
 		PlayRequest request = new PlayRequest(token, InetAddress.getLocalHost()
 				.toString());
@@ -190,51 +174,38 @@ public class Main {
 		json.put("item", item.getItem().getName());
 		json.put("amount", 1); // it's always 1!
 		// add it to the request
-	    array.add(json);
+		array.add(json);
 		request.setItems(array);
-		
+
 		out.println(request.ToJSON());
 		printDebugLines(request.ToJSON());
-		
+
 		msg = in.readLine();
 		printDebugLines(msg);
 		PlayResponse response = new PlayResponse();
 		response.FromJSON(msg);
-
-//		out.close();
-//		in.close();
-//		socket.close();
 	}
-	
+
 	private void getUpdatedBag(int removed) throws Exception {
 		if (token.equals(""))
 			throw new TokenException();
-		
-//		socket = new Socket(host, port);
-//		inStream = socket.getInputStream();
-//		outStream = socket.getOutputStream();
-//		out = new PrintWriter(outStream, true);
-//		in = new BufferedReader(new InputStreamReader(inStream));
-		
+
 		BagRequest request = new BagRequest();
 		out.println(request.ToJSON());
 		printDebugLines(request.ToJSON());
-		
+
 		msg = in.readLine();
 		printDebugLines(msg);
 		BagResponse response = new BagResponse();
 		response.FromJSON(msg);
 		updateBagList(response.getBag(), removed);
-		
-//		out.close();
-//		in.close();
-//		socket.close();
 	}
-	
+
+	// Opens a generic Alert with a message inside...
 	private void showMessage(String message) {
 		JOptionPane.showMessageDialog(frame, message);
 	}
-	
+
 	// The thread will be blocked until some message will be received
 	private boolean initTokenRing() throws Exception {
 		client = new TokenClient(tHost, tPort);
@@ -243,37 +214,49 @@ public class Main {
 		// start communication thread
 		Thread tTokenRing = new Thread(client);
 		tTokenRing.start();
-		
+
 		// main thread will be locked...
-		while((hasToken = client.getHasToken()) != true) {
+		while ((hasToken = client.getHasToken()) != true) {
 			Thread.sleep(1000);
 		}
-		
+
 		return hasToken;
 	}
-	
+
 	// The thread will be blocked again until the token will be granted
 	private boolean requestToken() throws Exception {
 		client.sendRequestCS();
-		
+
 		// main thread will be locked...
-		while((hasToken = client.getHasToken()) != true) {
+		while ((hasToken = client.getHasToken()) != true) {
 			Thread.sleep(1000);
 		}
-		
+
 		return hasToken;
 	}
-		
+
 	// The thread will be blocked again until the token will be released
 	private boolean releaseToken() throws Exception {
 		client.sendReleaseCS();
-		
+
 		// main thread will be locked...
-		while((hasToken = client.getHasToken()) != false) {
+		while ((hasToken = client.getHasToken()) != false) {
 			Thread.sleep(1000);
 		}
-		
+
 		return hasToken;
+	}
+
+	// This method changes the visibility of all the elements
+	private void changeGUIStatus(boolean isActive) {
+		// The order matters...
+		scroll.setVisible(isActive);
+		button.setEnabled(isActive);
+		button.setVisible(isActive);
+		label.setVisible(!isActive);
+
+		// update screen...
+		frame.repaint();
 	}
 
 	public Main() {
@@ -288,6 +271,11 @@ public class Main {
 			System.exit(-1);
 		}
 
+		// Loading image
+		image = new ImageIcon(Main.class.getResource("img/loading.gif"));
+		label = new JLabel(image);
+		image.setImageObserver(label);
+
 		// Image list
 		list = new JList(items);
 		list.setCellRenderer(new ImagesRenderer(imageMap));
@@ -300,7 +288,7 @@ public class Main {
 
 			@Override
 			public void actionPerformed(ActionEvent e) {
-				if (list.getSelectedIndex() > 0) {
+				if (list.getSelectedIndex() > -1) {
 					try {
 						// read the picked item
 						Item picked = new Item((JSONObject) localBag.get(list
@@ -309,24 +297,20 @@ public class Main {
 						sendItemPicked(picked);
 						// update local bag
 						getUpdatedBag(list.getSelectedIndex());
-						// update screen
-						frame.repaint();
 						// token is cleaned
 						token = "";
 						// checking game state according to bag size...
-						if (localBag.size() > 1) {
+						if (localBag.size() > 0) {
 							// resolve token ring requests
 							if (releaseToken()) {
-								// button is lock to avoid picking
-								button.setEnabled(false);
+								changeGUIStatus(false);
 							}
-							//TODO: do this better!
 							if (requestToken()) {
 								// refresh bag...
-								button.setEnabled(true);
+								changeGUIStatus(true);
 							}
 						} else {
-							//TODO: implement something to show the results
+							// TODO: implement something to show the results
 							showMessage("Game Over!");
 						}
 					} catch (Exception ex) {
@@ -343,6 +327,10 @@ public class Main {
 		gui.setPreferredSize(new Dimension(300, 450));
 		gui.add(scroll);
 		gui.add(button);
+		gui.add(label);
+
+		// Set the GUI components to be ready
+		changeGUIStatus(true);
 
 		// Final frame with all the containers
 		frame = new JFrame("Zombies from The Andes (Demo)");
@@ -368,11 +356,12 @@ public class Main {
 							Main.class.getResource("img/gun.png")));
 				}
 				if (name.equalsIgnoreCase(ItemType.AidBox.name())) {
-					map.put(ItemType.AidBox.name().toLowerCase(), new ImageIcon(
-							Main.class.getResource("img/aidbox.gif")));
+					map.put(ItemType.AidBox.name().toLowerCase(),
+							new ImageIcon(Main.class
+									.getResource("img/aidbox.gif")));
 				}
 			}
-			
+
 		} catch (Exception ex) {
 			ex.printStackTrace();
 		}
