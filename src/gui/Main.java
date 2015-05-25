@@ -256,16 +256,17 @@ public class Main {
 		label.setVisible(!isActive);
 
 		// update screen...
-		frame.repaint();
+		if (frame != null)
+			frame.repaint();
 	}
 
 	public Main() {
 		try {
 			// locking instructions!
-			if (initTokenRing()) {
+//			if (initTokenRing()) {
 				initNetworking();
 				checkGameStatus();
-			}
+//			}
 		} catch (Exception ex) {
 			ex.printStackTrace();
 			System.exit(-1);
@@ -302,13 +303,13 @@ public class Main {
 						// checking game state according to bag size...
 						if (localBag.size() > 0) {
 							// resolve token ring requests
-							if (releaseToken()) {
+//							if (releaseToken()) {
 								changeGUIStatus(false);
-							}
-							if (requestToken()) {
+//							}
+//							if (requestToken()) {
 								// refresh bag...
 								changeGUIStatus(true);
-							}
+//							}
 						} else {
 							// TODO: implement something to show the results
 							showMessage("Game Over!");
