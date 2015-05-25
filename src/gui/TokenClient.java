@@ -75,6 +75,7 @@ public class TokenClient implements Runnable {
 						break;
 					default:
 						// the message doesn't make sense... do nothing!
+						Thread.sleep(1000);
 						continue;
 				}
 				// message is wiped to avoid repetitions

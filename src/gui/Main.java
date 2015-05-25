@@ -35,6 +35,7 @@ import messaging.StartGameResponse;
 
 import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
+import org.kohsuke.args4j.CmdLineParser;
 
 import common.Item;
 import common.ItemType;
@@ -125,6 +126,9 @@ public class Main {
 
 	private void updateBagList(JSONArray bag, int removed) {
 		if (bag != null) {
+			// if the local copy is already with elements...
+			if (localBag != null && localBag.size() > 0)
+				localBag.clear();
 			// clone it to keep a local copy
 			localBag = (JSONArray) bag.clone();
 			// parse it to create the list on screen
@@ -162,9 +166,6 @@ public class Main {
 	}
 
 	private void sendItemPicked(Item item) throws Exception {
-		if (token.equals(""))
-			throw new TokenException();
-
 		PlayRequest request = new PlayRequest(token, InetAddress.getLocalHost()
 				.toString());
 		// create the JSONArray with the selected item
@@ -185,11 +186,21 @@ public class Main {
 		PlayResponse response = new PlayResponse();
 		response.FromJSON(msg);
 	}
+	
+	private void refreshBag() throws Exception {
+		BagRequest request = new BagRequest();
+		out.println(request.ToJSON());
+		printDebugLines(request.ToJSON());
+
+		msg = in.readLine();
+		printDebugLines(msg);
+		BagResponse response = new BagResponse();
+		response.FromJSON(msg);
+		// no item removed
+		updateBagList(response.getBag(), -1);
+	}
 
 	private void getUpdatedBag(int removed) throws Exception {
-		if (token.equals(""))
-			throw new TokenException();
-
 		BagRequest request = new BagRequest();
 		out.println(request.ToJSON());
 		printDebugLines(request.ToJSON());
@@ -207,8 +218,8 @@ public class Main {
 	}
 
 	// The thread will be blocked until some message will be received
-	private boolean initTokenRing() throws Exception {
-		client = new TokenClient(tHost, tPort);
+	private boolean initTokenRing(String host, int port) throws Exception {
+		client = new TokenClient(host, port);
 		// by default, all the guis start requesting the token
 		client.sendRequestCS();
 		// start communication thread
@@ -259,14 +270,18 @@ public class Main {
 		if (frame != null)
 			frame.repaint();
 	}
+	
+	private void exitGame() {
+		System.exit(-1);
+	}
 
-	public Main() {
+	public Main(ArgumentParser args) {
 		try {
 			// locking instructions!
-//			if (initTokenRing()) {
+			if (initTokenRing(args.getTokenHostname(), args.getTokenPort())) {
 				initNetworking();
 				checkGameStatus();
-//			}
+			}
 		} catch (Exception ex) {
 			ex.printStackTrace();
 			System.exit(-1);
@@ -298,21 +313,26 @@ public class Main {
 						sendItemPicked(picked);
 						// update local bag
 						getUpdatedBag(list.getSelectedIndex());
-						// token is cleaned
-						token = "";
+						frame.repaint();
 						// checking game state according to bag size...
 						if (localBag.size() > 0) {
 							// resolve token ring requests
-//							if (releaseToken()) {
+							if (releaseToken()) {
 								changeGUIStatus(false);
-//							}
-//							if (requestToken()) {
+							}
+							if (requestToken()) {
 								// refresh bag...
+								refreshBag();
 								changeGUIStatus(true);
-//							}
+								if (localBag.size() < 1) {
+									showMessage("GameOver");
+									exitGame();
+								}
+							}
 						} else {
 							// TODO: implement something to show the results
 							showMessage("Game Over!");
+							exitGame();
 						}
 					} catch (Exception ex) {
 						ex.printStackTrace();
@@ -370,9 +390,17 @@ public class Main {
 	}
 
 	public static void main(String[] args) {
+		ArgumentParser bean = new ArgumentParser();
+		try {
+			bean.Parse(args);
+		} catch(Exception e) {
+			e.printStackTrace();
+			System.exit(-1);
+		}
+		
 		SwingUtilities.invokeLater(new Runnable() {
 			public void run() {
-				new Main();
+				new Main(bean);
 			}
 		});
 	}
