@@ -6,6 +6,9 @@ import org.kohsuke.args4j.Option;
 
 public class ArgumentParser {
 	
+	@Option(name = "-name", usage = "Sets username")
+	private String name = null;
+	
 	@Option(name = "-players", usage = "Sets number of players")
 	private int players;
 
@@ -48,6 +51,14 @@ public class ArgumentParser {
 		tokenServer = "";
 		debug = "false";
 		players = 0;
+	}
+	
+	public void setName(String name) {
+		this.name = name;
+	}
+	
+	public String getName() {
+		return name;
 	}
 
 	public void setPlayers(int players) {

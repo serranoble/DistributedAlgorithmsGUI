@@ -13,6 +13,7 @@ import java.net.Socket;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Map.Entry;
 
 import javax.swing.ImageIcon;
 import javax.swing.JButton;
@@ -70,6 +71,7 @@ public class Main {
 	private String token;
 	private String[] items;
 	private JSONArray localBag;
+	private String name;
 
 	// Token Ring parameters
 	private TokenClient client;
@@ -178,8 +180,7 @@ public class Main {
 	}
 
 	private void sendItemPicked(Item item) throws Exception {
-		PlayRequest request = new PlayRequest(token, InetAddress.getLocalHost()
-				.toString());
+		PlayRequest request = new PlayRequest(token, name);
 		// create the JSONArray with the selected item
 		JSONArray array = new JSONArray();
 		// convert the item to json object
@@ -223,7 +224,13 @@ public class Main {
 		response.FromJSON(msg);
 		
 		// TODO: parse and show with fancy graphics
-		showMessage(msg);
+		StringBuilder text = new StringBuilder();
+		for(Object entry : response.getPlayers().entrySet()) {
+			Entry<String,String> e = (Entry<String,String>)entry;
+			printDebugLines(e.getKey() + "-" + e.getValue());
+			text.append("Player: " + e.getKey() + " => Alive: " + e.getValue() + "<br>");
+		}
+		showMessage("<html><body style='width: 200px; padding: 5px;'>" + text.toString());
 		
 		releaseToken(true);
 		requestToken();
@@ -246,7 +253,8 @@ public class Main {
 
 	// Opens a generic Alert with a message inside...
 	private void showMessage(String message) {
-		JOptionPane.showMessageDialog(frame, message);
+		JLabel label = new JLabel(message);
+		JOptionPane.showMessageDialog(null, label);
 	}
 
 	// The thread will be blocked until some message will be received
@@ -310,6 +318,9 @@ public class Main {
 	}
 
 	public Main(ArgumentParser args) {
+		// get name from args
+		name = args.getName();
+		
 		try {
 			// locking instructions!
 			if (initTokenRing(args.getTokenHostname(), args.getTokenPort())) {
