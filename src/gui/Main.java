@@ -224,6 +224,9 @@ public class Main {
 		
 		// TODO: parse and show with fancy graphics
 		showMessage(msg);
+		
+		releaseToken(true);
+		requestToken();
 	}
 
 	private void getUpdatedBag(int removed) throws Exception {
@@ -276,12 +279,14 @@ public class Main {
 	}
 
 	// The thread will be blocked again until the token will be released
-	private boolean releaseToken() throws Exception {
+	private boolean releaseToken(boolean isLocked) throws Exception {
 		client.sendReleaseCS();
 
-		// main thread will be locked...
-		while ((hasToken = client.getHasToken()) != false) {
-			Thread.sleep(1000);
+		if (isLocked) {
+			// main thread will be locked...
+			while ((hasToken = client.getHasToken()) != false) {
+				Thread.sleep(1000);
+			}
 		}
 
 		return hasToken;
@@ -354,23 +359,24 @@ public class Main {
 						// checking game state according to bag size...
 						if (localBag.size() > 0) {
 							// resolve token ring requests
-							if (releaseToken()) {
+							if (releaseToken(true)) {
 								changeGUIStatus(false);
 							}
 							if (requestToken()) {
 								// refresh bag...
 								refreshBag();
-								changeGUIStatus(true);
+								// check end game here
 								if (localBag.size() < 1) {
 									// TODO: implement something fancy here!!
 									sendEndGame();
-									exitGame();
+									changeGUIStatus(false);
 								}
+								changeGUIStatus(true);
 							}
 						} else {
 							// TODO: implement something fancy here!!
 							sendEndGame();
-							exitGame();
+							changeGUIStatus(false);
 						}
 					} catch (EndGameException ege) {
 						try {
@@ -378,7 +384,7 @@ public class Main {
 						} catch (Exception e1) {
 							e1.printStackTrace();
 						}
-						exitGame();
+						changeGUIStatus(false);
 					} catch (Exception ex) {
 						ex.printStackTrace();
 					}
