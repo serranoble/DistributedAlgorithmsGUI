@@ -30,6 +30,8 @@ import messaging.CheckAvailabilityRequest;
 import messaging.CheckAvailabilityResponse;
 import messaging.PlayRequest;
 import messaging.PlayResponse;
+import messaging.ResultsRequest;
+import messaging.ResultsResponse;
 import messaging.StartGameRequest;
 import messaging.StartGameResponse;
 
@@ -199,6 +201,20 @@ public class Main {
 		// no item removed
 		updateBagList(response.getBag(), -1);
 	}
+	
+	private void sendEndGame() throws Exception {
+		ResultsRequest request = new ResultsRequest();
+		out.println(request.ToJSON());
+		printDebugLines(request.ToJSON());
+		
+		msg = in.readLine();
+		printDebugLines(msg);
+		ResultsResponse response = new ResultsResponse();
+		response.FromJSON(msg);
+		
+		// TODO: parse and show with fancy graphics
+		showMessage(msg);
+	}
 
 	private void getUpdatedBag(int removed) throws Exception {
 		BagRequest request = new BagRequest();
@@ -325,13 +341,13 @@ public class Main {
 								refreshBag();
 								changeGUIStatus(true);
 								if (localBag.size() < 1) {
-									showMessage("GameOver");
+									sendEndGame();
 									exitGame();
 								}
 							}
 						} else {
 							// TODO: implement something to show the results
-							showMessage("Game Over!");
+							sendEndGame();
 							exitGame();
 						}
 					} catch (Exception ex) {
