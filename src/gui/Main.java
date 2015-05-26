@@ -37,7 +37,6 @@ import messaging.StartGameResponse;
 
 import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
-import org.kohsuke.args4j.CmdLineParser;
 
 import common.Item;
 import common.ItemType;
@@ -84,7 +83,7 @@ public class Main {
 		}
 	}
 
-	private void initNetworking() throws Exception {
+	private void initNetworking(String host, int port) throws Exception {
 		socket = new Socket(host, port);
 		inStream = socket.getInputStream();
 		outStream = socket.getOutputStream();
@@ -108,7 +107,8 @@ public class Main {
 		return result.getBusy();
 	}
 
-	private void updateBagList(JSONArray bag) {
+	private void updateBagList(JSONArray bag) throws EndGameException {
+		int totalEmpty = 0;
 		if (bag != null) {
 			// clone it to keep a local copy
 			localBag = (JSONArray) bag.clone();
@@ -116,13 +116,20 @@ public class Main {
 			ArrayList<String> temp = new ArrayList<String>();
 			for (Object obj : bag) {
 				Item item = new Item((JSONObject) obj);
-				if (item.getAmount() > 0) {
+				// if there are still some items, then paint them
+				if (item.getAmount() > 0)
 					temp.add(item.getItem().getName());
-				}
+				// if there are no items, log that to throw the exception
+				if (item.getAmount() == 0)
+					totalEmpty++;
 			}
-			items = new String[temp.size()];
-			temp.toArray(items);
-			imageMap = createImageMap(items);
+			if (totalEmpty == localBag.size())
+				throw new EndGameException();
+			else {
+				items = new String[temp.size()];
+				temp.toArray(items);
+				imageMap = createImageMap(items);
+			}
 		}
 	}
 
@@ -149,11 +156,11 @@ public class Main {
 		}
 	}
 
-	private void checkGameStatus() throws Exception {
+	private void checkGameStatus(int players) throws Exception {
 		// Check if there is any game running
 		if (!isAvailable(out, in)) {
 			// Create a new game
-			StartGameRequest request = new StartGameRequest(numPlayers);
+			StartGameRequest request = new StartGameRequest(players);
 			out.println(request.ToJSON());
 			printDebugLines(request.ToJSON());
 
@@ -164,6 +171,9 @@ public class Main {
 
 			token = response.getToken();
 			updateBagList(response.getBag());
+		} else {
+			// ask for the bag available in the server...
+			getUpdatedBag(-1);
 		}
 	}
 
@@ -199,7 +209,7 @@ public class Main {
 		BagResponse response = new BagResponse();
 		response.FromJSON(msg);
 		// no item removed
-		updateBagList(response.getBag(), -1);
+		updateBagList(response.getBag());
 	}
 	
 	private void sendEndGame() throws Exception {
@@ -225,7 +235,10 @@ public class Main {
 		printDebugLines(msg);
 		BagResponse response = new BagResponse();
 		response.FromJSON(msg);
-		updateBagList(response.getBag(), removed);
+		if (removed > 0)
+			updateBagList(response.getBag(), removed);
+		else
+			updateBagList(response.getBag());
 	}
 
 	// Opens a generic Alert with a message inside...
@@ -295,8 +308,8 @@ public class Main {
 		try {
 			// locking instructions!
 			if (initTokenRing(args.getTokenHostname(), args.getTokenPort())) {
-				initNetworking();
-				checkGameStatus();
+				initNetworking(args.getHostname(), args.getServerPort());
+				checkGameStatus(args.getPlayers());
 			}
 		} catch (Exception ex) {
 			ex.printStackTrace();
@@ -323,8 +336,16 @@ public class Main {
 				if (list.getSelectedIndex() > -1) {
 					try {
 						// read the picked item
-						Item picked = new Item((JSONObject) localBag.get(list
-								.getSelectedIndex()));
+						printDebugLines(list.getSelectedValue().toString());
+						int i = 0;
+						for (Object obj : localBag) {
+							Item item = new Item((JSONObject) obj);
+							if (item.getItem().getName().toLowerCase().equals(list.getSelectedValue().toString()))
+								break;
+							i++;
+						}
+
+						Item picked = new Item((JSONObject) localBag.get(i));
 						// send selection to server
 						sendItemPicked(picked);
 						// update local bag
@@ -351,6 +372,13 @@ public class Main {
 							sendEndGame();
 							exitGame();
 						}
+					} catch (EndGameException ege) {
+						try {
+							sendEndGame();
+						} catch (Exception e1) {
+							e1.printStackTrace();
+						}
+						exitGame();
 					} catch (Exception ex) {
 						ex.printStackTrace();
 					}

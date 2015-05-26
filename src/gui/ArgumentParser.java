@@ -5,6 +5,9 @@ import org.kohsuke.args4j.CmdLineParser;
 import org.kohsuke.args4j.Option;
 
 public class ArgumentParser {
+	
+	@Option(name = "-players", usage = "Sets number of players")
+	private int players;
 
 	@Option(name = "-port", usage = "Sets server port")
 	private int serverPort;
@@ -44,8 +47,17 @@ public class ArgumentParser {
 		server = "";
 		tokenServer = "";
 		debug = "false";
+		players = 0;
 	}
 
+	public void setPlayers(int players) {
+		this.players = players;
+	}
+
+	public int getPlayers() {
+		return players;
+	}
+	
 	public int getServerPort() {
 		return serverPort;
 	}
