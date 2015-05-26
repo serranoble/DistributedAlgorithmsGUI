@@ -341,12 +341,13 @@ public class Main {
 								refreshBag();
 								changeGUIStatus(true);
 								if (localBag.size() < 1) {
+									// TODO: implement something fancy here!!
 									sendEndGame();
 									exitGame();
 								}
 							}
 						} else {
-							// TODO: implement something to show the results
+							// TODO: implement something fancy here!!
 							sendEndGame();
 							exitGame();
 						}
